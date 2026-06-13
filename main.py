@@ -1,73 +1,83 @@
 import streamlit as st
 import numpy as np
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 import time
 
-# ==========================================
-# 1. 페이지 설정
-# ==========================================
-st.set_page_config(page_title="Optimized 3D N-Body Sim", layout="wide")
+# 1. 페이지 설정 및 제목
+st.set_page_config(page_title="N-Body Simulation", layout="wide")
+st.title("🌌 N-Body 천체 시뮬레이션")
+st.write("중력 상호작용에 따른 천체들의 움직임을 시뮬레이션합니다.")
 
-# ==========================================
-# 2. 사이드바 설정 (시뮬레이션 컨트롤러)
-# ==========================================
-with st.sidebar:
-    st.title("🌌 3D 시뮬레이션 설정")
-    start_btn = st.button("🚀 시뮬레이션 시작", use_container_width=True)
-    st.divider()
-    G = st.slider("중력 상수 (G)", 0.1, 10.0, 2.0, 0.5)
-    dt = st.slider("시간 간격 (dt)", 0.001, 0.05, 0.01, 0.001, format="%.3f")
-    steps = st.slider("총 스텝 수", 100, 2000, 600, 100)
-    
-    st.divider()
-    st.subheader("⏱️ 애니메이션 속도 제어")
-    render_ratio = st.slider("몇 스텝마다 화면을 갱신할까요?", 1, 20, 5)
-    fps_control = st.slider("프레임당 지연 시간 (초)", 0.000, 0.100, 0.005, 0.005, format="%.3f")
+# 2. 사이드바 - 파라미터 설정
+st.sidebar.header("⚙️ 시뮬레이션 설정")
+G = st.sidebar.number_input("중력 상수 (G)", value=1.0, step=0.1)
+dt = st.sidebar.number_input("시간 간격 (dt)", value=0.01, step=0.001, format="%.3f")
+num_steps = st.sidebar.slider("총 시뮬레이션 스텝 수", 50, 500, 200)
+num_bodies = st.sidebar.slider("천체 개수", 2, 5, 3)
 
-# ==========================================
-# 3. 고속 3D 물리 엔진 (NumPy 벡터화 연산)
-# ==========================================
-def get_acc_3d_vectorized(pos, mass, G):
-    N = pos.shape[0]
-    # 천체 간 거리 벡터 계산
-    diff = pos[:, np.newaxis, :] - pos[np.newaxis, :, :]
-    dist_sq = np.sum(diff**2, axis=-1) + 0.01
-    dist = np.sqrt(dist_sq)
-    
-    # 예외 처리 및 가속도 계산
-    inv_dist_cube = np.where(dist > 0.1, 1.0 / (dist**3), 0.0)
-    acc_matrix = G * mass[:, np.newaxis, np.newaxis] * diff * inv_dist_cube[:, :, np.newaxis]
-    
-    acc = np.sum(acc_matrix, axis=0)
-    return acc
+# 3. 천체 초기값 설정 (무작위 생성)
+np.random.seed(42)  # 일관된 결과를 위한 시드 고정
+masses = np.random.uniform(10, 100, num_bodies)
+positions = np.random.uniform(-5, 5, (num_bodies, 2))
+velocities = np.random.uniform(-1, 1, (num_bodies, 2))
 
-# ==========================================
-# 4. 메인 대시보드 UI 구성 및 초기 조건
-# ==========================================
-st.title("🪐 실시간 3D N-Body 물리 시뮬레이션")
-st.caption("구문 오류(SyntaxError)를 수정하고 렌더링 성능을 최적화한 통합 코드입니다.")
+# 정보 표시
+st.subheader("🪐 천체 초기 상태")
+for i in range(num_bodies):
+    st.write(f"**천체 {i+1}** | 질량: {masses[i]:.2f} | 위치: ({positions[i,0]:.2f}, {positions[i,1]:.2f}) | 속도: ({velocities[i,0]:.2f}, {velocities[i,1]:.2f})")
 
-# 차트가 실시간으로 업데이트될 독립 공간
+st.markdown("---")
+
+# 4. 애니메이션을 위한 그래프 출력 공간 준비
 plot_spot = st.empty()
-
-# [수정 완료] 대괄호와 소괄호가 완벽히 닫힌 초기 조건 선언부
-pos = np.array([
-    [0.0, 0.0, 0.0],    # 중앙의 무거운 천체
-    [3.0, 0.0, 0.5],    # 약간 비스듬하게 도는 천체 1
-    [-3.0, 0.0, -0.5]   # 반대 방향으로 도는 천체 2
-])
-
-vel = np.array([
-    [0.0, 0.0, 0.0],
-    [0.0, 2.2, 0.5],
-    [0.0, -2.2, -0.5]
-])
-
-mass = np.array([30.0, 3.0, 3.0])
-colors = ['#FF4B4B', '#1C83E1', '#00C781']
-names = ['중앙 천체', '행성 A', '행성 B']
+start_btn = st.sidebar.button("🚀 시뮬레이션 시작")
 
 # ==========================================
-# 5. 시뮬레이션 계산 및 재생 루프
+# [문제의 73번째 줄] 여기서부터 시작 버튼 제어입니다.
+# 아래의 모든 시뮬레이션 로직은 정상적으로 들여쓰기 처리되었습니다.
 # ==========================================
 if start_btn:
+    st.sidebar.success("시뮬레이션 진행 중...")
+    
+    # 위치 기록을 위한 리스트
+    history = [positions.copy()]
+    
+    # 시뮬레이션 루프 계산
+    for step in range(num_steps):
+        forces = np.zeros((num_bodies, 2))
+        
+        # 모든 천체 간의 중력 계산
+        for i in range(num_bodies):
+            for j in range(num_bodies):
+                if i != j:
+                    r_vec = positions[j] - positions[i]
+                    distance = np.linalg.norm(r_vec) + 1e-4  # 충돌로 인한 분모 0 방지 (Softening)
+                    force_mag = G * masses[i] * masses[j] / (distance**2)
+                    forces[i] += force_mag * (r_vec / distance)
+        
+        # 가속도, 속도, 위치 업데이트
+        accelerations = forces / masses[:, np.newaxis]
+        velocities += accelerations * dt
+        positions += velocities * dt
+        
+        # 실시간 시각화 (matplotlib 이용)
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.set_xlim(-10, 10)
+        ax.set_ylim(-10, 10)
+        ax.set_title(f"Simulation Step: {step + 1}/{num_steps}")
+        ax.grid(True, linestyle='--', alpha=0.5)
+        
+        # 천체 위치 그리기
+        for i in range(num_bodies):
+            ax.scatter(positions[i, 0], positions[i, 1], s=masses[i]*3, label=f"Body {i+1}")
+            
+        ax.legend(loc="upper right")
+        
+        # Streamlit 화면에 그래프 업데이트
+        plot_spot.pyplot(fig)
+        plt.close(fig)  # 메모리 확보를 위해 종료
+        
+        # 시뮬레이션 속도 조절
+        time.sleep(0.02)
+        
+    st.sidebar.info("시뮬레이션이 완료되었습니다!")
