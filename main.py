@@ -12,7 +12,9 @@ st.write("중력 상호작용에 따른 천체들의 움직임을 시뮬레이�
 st.sidebar.header("⚙️ 시뮬레이션 설정")
 G = st.sidebar.number_input("중력 상수 (G)", value=1.0, step=0.1)
 dt = st.sidebar.number_input("시간 간격 (dt)", value=0.01, step=0.001, format="%.3f")
-num_steps = st.sidebar.slider("총 시뮬레이션 스텝 수", 50, 500, 200)
+
+# [수정] 스텝 수 대신 '프레임 수'로 대체
+num_frames = st.sidebar.slider("애니메이션 프레임 수", 50, 500, 200)
 num_bodies = st.sidebar.slider("천체 개수", 2, 5, 3)
 
 # 3. 천체 초기값 설정 (무작위 생성)
@@ -32,18 +34,15 @@ st.markdown("---")
 plot_spot = st.empty()
 start_btn = st.sidebar.button("🚀 시뮬레이션 시작")
 
-# ==========================================
-# [문제의 73번째 줄] 여기서부터 시작 버튼 제어입니다.
-# 아래의 모든 시뮬레이션 로직은 정상적으로 들여쓰기 처리되었습니다.
-# ==========================================
+# 5. 시뮬레이션 실행 제어 (들여쓰기 유지)
 if start_btn:
     st.sidebar.success("시뮬레이션 진행 중...")
     
     # 위치 기록을 위한 리스트
     history = [positions.copy()]
     
-    # 시뮬레이션 루프 계산
-    for step in range(num_steps):
+    # [수정] num_steps 대신 num_frames 만큼 루프 작동
+    for frame in range(num_frames):
         forces = np.zeros((num_bodies, 2))
         
         # 모든 천체 간의 중력 계산
@@ -64,7 +63,8 @@ if start_btn:
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.set_xlim(-10, 10)
         ax.set_ylim(-10, 10)
-        ax.set_title(f"Simulation Step: {step + 1}/{num_steps}")
+        # [수정] 상단 타이틀 표기도 Frame으로 변경
+        ax.set_title(f"Animation Frame: {frame + 1}/{num_frames}")
         ax.grid(True, linestyle='--', alpha=0.5)
         
         # 천체 위치 그리기
